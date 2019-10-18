@@ -1,12 +1,8 @@
-#####
 #Specify paths
 #####
 
 #To BAM fi
-BAMDIR=~/onchogenome/faust_schisto/sequencing-data-pipeline/bam/
-FASTQDIR=~/onchogenome/faust_schisto/sequencing-data-pipeline/fastq/
-VCFDIR=~/onchogenome/faust_schisto/sequencing-data-pipeline/bam/vcf/
-GENOME=~/Genomes/schisto/schistosoma_mansoni.PRJEA36577.WBPS14.genomic.fa
+GENOME=~/genomes/Schistosoma_mansoni/GCA_000499405.2_ASM49940v2_genomic.fna
 TRIMMODIR=~/software/Trimmomatic-0.39/
 THREADS=6
 
@@ -30,22 +26,22 @@ for f in `cat list`
 
 do
 
-######
-#trim reads
-######
+    ######
+    #trim reads
+    ######
 
-#java -jar $TRIMMODIR/trimmomatic-0.39.jar PE $FASTQDIR/untrim/$f"_R1_001.fastq.gz" $FASTQDIR/untrim/$f"_R2_001.fastq.gz" $FASTQDIR/trim/$f"_R1.trim.fq.gz" $FASTQDIR/trim/$f"_R1.trim.unpaired.fq.gz" $FASTQDIR/trim/$f"_R2.trim.fq.gz" $FASTQDIR/trim/$f"_R2.trim.unpaired.fq.gz" ILLUMINACLIP:$TRIMMODIR/adapters/TruSeq3-PE.fa:2:30:10:2:keepBothReads LEADING:3 TRAILING:3 MINLEN:36
+    java -jar $TRIMMODIR/trimmomatic-0.39.jar PE fastq/untrim/$f"_R1_001.fastq.gz" fastq/untrim/$f"_R2_001.fastq.gz" fastq/trim/$f"_R1.trim.fq.gz" fastq/trim/$f"_R1.trim.unpaired.fq.gz" fastq/trim/$f"_R2.trim.fq.gz" fastq/trim/$f"_R2.trim.unpaired.fq.gz" ILLUMINACLIP:$TRIMMODIR/adapters/TruSeq3-PE.fa:2:30:10:2:keepBothReads LEADING:3 TRAILING:3 MINLEN:36
 
-######
-#align reads
-######
+    ######
+    #align reads
+    ######
 
-bwa mem -t $THREADS $GENOME $FASTQDIR/trim/$f"_R1.trim.fq.gz" $FASTQDIR/trim/$f"_R2.trim.fq.gz" | samtools sort > $BAMDIR/$f".srt.bam"
+    bwa mem -t $THREADS $GENOME fastq/trim/$f"_R1.trim.fq.gz" fastq/trim/$f"_R2.trim.fq.gz" | samtools sort > bam/$f".srt.bam"
 
-######
-#remove duplicates
-######
+    ######
+    #remove duplicates
+    ######
 
-java -jar ~/software/picard/build/libs/picard.jar MarkDuplicates I=$BAMDIR/$f".srt.bam" O=$BAMDIR/$f".srt.dd.bam" M=$BAMDIR/$f".M"
+    java -jar ~/software/picard/build/libs/picard.jar MarkDuplicates I=bam/$f".srt.bam" O=bam/$f".srt.dd.bam" M=bam/$f".M"
 
 done
