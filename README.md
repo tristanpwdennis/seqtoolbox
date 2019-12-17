@@ -17,3 +17,12 @@ R scripts for:
 1. Open in RStudio
 2. Tinker with paths
 3. Run
+
+Python environment and notebook for faffing about with sequencing data
+1. Install and activate environment with python >= 3.5
+2. Clone repo
+3. `cd path/to/repo`
+4. `pip3 install -r requirements.txt`
+5. `pip3 install -e .`
+6. `jupyter notebook`
+7. Import vcf using first bit and then alter according to what kind of parsing you want to do
