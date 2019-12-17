@@ -9,6 +9,10 @@ sequencing utilities
 4. make sure bwa mem and samtools are in your PATH and gatk/picard .jars are compiled
 5. run
 
+## Utility scripts
+1. vcftofasta.sh run as `bash vcftofasta.sh <vcf.vcf.gz>`
+2. will take specified vdf, tabix index and convert to a multifasta file
+
 ## Analysis scripts
 R scripts for:
 -Visualising uniformity and depth of sequencing coverage
