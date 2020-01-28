@@ -2,7 +2,7 @@
 #####
 
 #To BAM fi
-GENOME=~/genomes/Schistosoma_mansoni/GCA_000499405.2_ASM49940v2_genomic.fna
+GENOME=~/Genomes/Onchocerca_volvulus/ncbi/oncho_with_wolb.fna
 TRIMMODIR=~/software/Trimmomatic-0.39/
 THREADS=6
 
