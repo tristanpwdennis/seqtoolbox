@@ -6,19 +6,19 @@ library(reshape)
 library(igraph)
 library(ggpedigree)
 
+
 ###########################
 #coverage data
 ##########################
 setwd("~/Projects/DNDI/Data/mf-unamplified/coverage/")
-all_files <- list.files(pattern = "*cov", full.names = TRUE)
 metadata <- read.csv("~/Projects/DNDI/Data/metadata/metadata-mf-males-unamp.csv")
 #read in all coverage files 'genome' section
 #takes filename as a column for identifier
 #chops off the file extension. edit the regex in the rbind command if you have different filenames
 x<-NULL
-for (file in all_files) {
-  the_data <- read.table(file, header = FALSE) %>% subset(V1 == "genome")
-  x<-rbind(x,data.frame(IND=gsub("_cov|./", "", file),data=the_data))
+for (file in (list.files(pattern = "*cov", full.names = TRUE))) {
+  . <- read.table(file, header = FALSE) %>% subset(V1 == "genome")
+  x<-rbind(x,data.frame(IND=gsub("_cov|./", "", file),data=.))
 }
 
 #add column names
@@ -27,24 +27,28 @@ colnames(x) <- c('IND', 'region', 'DP', 'NUM_BASES', 'TOTAL_BASES_IN_GENOME', 'F
 
 #join metadata to coverage data based on column (you do not need to do this but it is helpful when grouping samples
 #and selecting which ones to plot/facet in a plot
-t<-left_join(x, metadata, by = c("IND" = "sample_name"))
+x<-left_join(x, metadata, by = c("IND" = "sample_name"))
 
 
 head(t)
 
 #discretise depth into bins otherwise the plot crashes when coverage is uneven (a lot of small FRAC covered by a lot of bases)
-t$DPbin <- cut(x$DP, c(-0.1, 0, 1, 5, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000, 100000), c("0", "1", "1-5", "5-10", "10-20", "20-30", "30-40", "40-50", "50-100", "100-200", "200-300", "300-400", "400-500", "500-1000", "More than 1000"))
+x$DPbin <- cut(x$DP, c(-0.1, 0, 1, 5, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000, 100000), c("0", "1", "1-5", "5-10", "10-20", "20-30", "30-40", "40-50", "50-100", "100-200", "200-300", "300-400", "400-500", "500-1000", "More than 1000"))
 
 #plot as stacked column plot
 #add facet_wrap if you want to split the plot, otherwise remove
 #if you remove the facet wrap the plot should work without the metadata
 
 ###plot coverage data as fraction/depth
-ggplot(t, aes(x = t$IND, y = t$FRAC, fill = as.factor(DPbin))) +
+ggplot(x, aes(x = x$IND, y = x$FRAC, fill = as.factor(DPbin))) +
   geom_bar(stat = 'identity') + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   facet_grid(~ family_id, scales = "free", space = "free") +
   xlab('Sample name') + ylab('Fraction of genome covered') + labs(fill = 'Depth')
+
+
+poorlysequencedinds <- t %>% filter(DP == 0, FRAC >0.5) %>% select(IND)
+
 
 ##########################
 #load kinshipdata
@@ -122,3 +126,5 @@ E(net)$color <- as.factor(E(net)$foundrel)
 V(net)$color <- as.factor((V(net)$parent))
 coords <- layout_(net, nicely())
 plot(net, vertex.size=5, layout = coords)
+
+
