@@ -1,3 +1,4 @@
+#tristan dennis jan 2020
 #load externally developed packages
 library(dplyr)
 library(ggplot2)
@@ -46,9 +47,11 @@ ggplot(x, aes(x = x$IND, y = x$FRAC, fill = as.factor(DPbin))) +
   facet_grid(~ family_id, scales = "free", space = "free") +
   xlab('Sample name') + ylab('Fraction of genome covered') + labs(fill = 'Depth')
 
+#based on the plots pick a threshold of individuals with relatively poor coverage
+#in this case (also make histogram of fractions of coverage==0) let's chuck everything
+#below 0.5
 
-poorlysequencedinds <- t %>% filter(DP == 0, FRAC >0.5) %>% select(IND)
-
+poorlysequencedinds <- x %>% filter(DP == 0, FRAC >0.5) %>% select(IND)
 
 ##########################
 #load kinshipdata
@@ -60,25 +63,24 @@ setwd('/Users/tristanpwdennis/Projects/DNDI/Data/mf-unamplified/forngsrelate/ngs
 metadata <- read.csv('~/Projects/DNDI/Data/metadata/metadata-all.csv')
 
 #get the samples we are interested in
+#in this case I have grouped samples by sequencing run (4 = mf, 2 = adult males)
 metadata <- metadata %>% filter(sequencing_run == 4 | sequencing_run == 2) %>% select(sample_name, parent, village, nodule_id, sex)
 
-#catch all filenames
-file<-list.files(pattern = ".res", full.names = T)
-file<-gsub("./", "", file)
-
 #load all files as a list of dataframes
-t <- lapply(file, function(x) {
+t <- lapply(list.files(pattern = ".res", full.names = T), function(x) {
   tryCatch(read.delim(x, header = TRUE), error=function(e) NULL)
 })
 
+
 ###########################
-#mung kinshipdata
+#munging kinshipdata
 ##########################
 
-#init df
-df<- data.frame(ida = NA, idb = NA, upper = NA, mean = NA, lower = NA, coverage = NA)
+#init df,loop over list of matrices
+#calculating ci for each bootstrapped pair comparison
+#this will catch every set of samples and we will have to subset using the metadata in a second
 
-#loop over list of matrices
+df<- data.frame(ida = NA, idb = NA, upper = NA, mean = NA, lower = NA, coverage = NA)
 for(i in 1:length(t)) {
   #calculate confidence interval
   confint<-CI(t[[i]]$rab, ci = 0.95)
@@ -93,22 +95,34 @@ for(i in 1:length(t)) {
   df[i,6] <- paste(as.numeric(t[[i]]$coverage[1]))
 }
 
-#get rid of shit sequence data
-#based on poorly covered individuals identified in the coverage section
-df<-df[!as.character(y$IND) %in% df$ida, ]
 
 #add metadata to NGSRelate output
 df <- left_join(df, metadata, by = c("ida" = "sample_name")) %>% left_join(., metadata, by = c("idb" = "sample_name"))
 
 #add known relationship
 #hacky stuff with mutate to get around the fact we have known adults in our dataset
-t<-df %>% mutate(., link = ifelse(.$sex.x == 'male' | .$sex.y == 'male', 'malecomp', 'mfcomp')) %>% mutate(., knownrel = ifelse(.$parent.x == .$parent.y & .$link == 'mfcomp', 'fullorhalfsib', 'unknown'))
+df<-df %>% 
+  mutate(., link = ifelse(.$sex.x == 'male' | .$sex.y == 'male', 'malecomp', 'mfcomp')) %>% 
+  mutate(., knownrel = ifelse(.$parent.x == .$parent.y & .$link == 'mfcomp', 'fullorhalfsib', 'unknown')) %>% 
+  mutate(., withinorbetweenfam = ifelse(.$parent.x == .$parent.y & .$link == 'mfcomp', 'withinfamily', 'betweenfamily'))
 
 #add inferred relationship
-t$foundrel <- cut(df$mean, c(-3, 0.0442, 0.0884, 0.177, 0.354, 1), c("unrelated", "third","second", "first", "twin"))
+df$foundrel <- cut(df$mean, c(-3, 0.0442, 0.0884, 0.177, 0.5, 1), c("unrelated", "third","second", "first", "twin"))
+
+#let's filter out all comparisons between the males as they confuse things
+#we can return to them later
+
+df<-filter(df, link == 'mfcomp') 
+
+df
+hist(as.numeric(df$coverage))
+
+
+
+
 
 #get rid of badly covered samples
-s<-filter(t, coverage > 0.7 & mean > 0.125)
+s<-filter(df, coverage > 0.5)
 
 #kinship data (known and found relationships and demographic info for all samples are now stored in dataframe 't')
 
@@ -127,4 +141,6 @@ V(net)$color <- as.factor((V(net)$parent))
 coords <- layout_(net, nicely())
 plot(net, vertex.size=5, layout = coords)
 
+#get rid of shit sequence data
+#based on poorly covered individuals identified in the coverage section
 
