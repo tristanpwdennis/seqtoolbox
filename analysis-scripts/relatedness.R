@@ -5,14 +5,22 @@ library(ggplot2)
 library(Rmisc)
 library(reshape)
 library(igraph)
-library(ggpedigree)
+library(hrbrthemes)
+library(viridis)
+library(sf)
+library(maps)
+library("rnaturalearth")
+library("rnaturalearthdata")
+library(RColorBrewer)
+library("ggrepel")
+library("ggspatial")
 
 
-###########################
+####################################################
 #coverage data
-##########################
+####################################################
 setwd("~/Projects/DNDI/Data/mf-unamplified/coverage/")
-metadata <- read.csv("~/Projects/DNDI/Data/metadata/metadata-mf-males-unamp.csv")
+metadata <- read.csv("~/Projects/DNDI/Data/metadata/metadata-all.csv")
 #read in all coverage files 'genome' section
 #takes filename as a column for identifier
 #chops off the file extension. edit the regex in the rbind command if you have different filenames
@@ -51,11 +59,11 @@ ggplot(x, aes(x = x$IND, y = x$FRAC, fill = as.factor(DPbin))) +
 #in this case (also make histogram of fractions of coverage==0) let's chuck everything
 #below 0.5
 
-poorlysequencedinds <- x %>% filter(DP == 0, FRAC >0.5) %>% select(IND)
+poorlysequencedinds <- x %>% filter(DP == 0, FRAC <0.5) %>% select(IND)
 
-##########################
+####################################################
 #load kinshipdata
-##########################
+####################################################
 #set working dir
 setwd('/Users/tristanpwdennis/Projects/DNDI/Data/mf-unamplified/forngsrelate/ngsrelate-imputations/test/')
 
@@ -64,7 +72,7 @@ metadata <- read.csv('~/Projects/DNDI/Data/metadata/metadata-all.csv')
 
 #get the samples we are interested in
 #in this case I have grouped samples by sequencing run (4 = mf, 2 = adult males)
-metadata <- metadata %>% filter(sequencing_run == 4 | sequencing_run == 2) %>% select(sample_name, parent, village, nodule_id, sex)
+metadata <- metadata %>% filter(sequencing_run == 4 | sequencing_run == 2) %>% select(sample_name, parent, village, nodule_id, sex, lat, long)
 
 #load all files as a list of dataframes
 t <- lapply(list.files(pattern = ".res", full.names = T), function(x) {
@@ -72,9 +80,9 @@ t <- lapply(list.files(pattern = ".res", full.names = T), function(x) {
 })
 
 
-###########################
+####################################################
 #munging kinshipdata
-##########################
+####################################################
 
 #init df,loop over list of matrices
 #calculating ci for each bootstrapped pair comparison
@@ -112,35 +120,98 @@ df$foundrel <- cut(df$mean, c(-3, 0.0442, 0.0884, 0.177, 0.5, 1), c("unrelated",
 #let's filter out all comparisons between the males as they confuse things
 #we can return to them later
 
-df<-filter(df, link == 'mfcomp') 
+####################################################
+#plotting kinship data
+####################################################
 
-df
+
 hist(as.numeric(df$coverage))
 
+df %>% 
+  filter(., link == 'mfcomp') %>% 
+  filter(., coverage > 0.8) %>% 
+  ggplot(., aes(x = withinorbetweenfam, y = mean, fill = withinorbetweenfam)) +
+  geom_boxplot() +
+  theme_ipsum() +
+  scale_fill_viridis(discrete = TRUE, alpha=0.6, option="A") +
+  geom_jitter(aes(color=foundrel), size=2, alpha=0.9) +
+  xlab(" Mean relatedness between and within families") +
+  ylab("Mean coefficient of kinship") + theme_grey(base_size = 22)
+  
+
+df %>% 
+  filter(., link == 'malecomp') %>% 
+  filter(., coverage > 0.8) %>% 
+  ggplot(., aes(x = withinorbetweenfam, y = mean, fill = withinorbetweenfam)) +
+  geom_boxplot() +
+  theme_ipsum() +
+  scale_fill_viridis(discrete = TRUE, alpha=0.6, option="A") +
+  geom_jitter(aes(color=foundrel), size=2, alpha=0.9) +
+  ylab("Mean coefficient of kinship") + theme_grey(base_size = 22) +
+  xlab("Relatedness between male samples") + theme_grey(base_size = 22)
 
 
 
+#create links and nodes for igraph plot
+links <- df %>% 
+  select(ida, idb, mean, foundrel, coverage, link, sex.x, sex.y) %>% 
+  filter(link == 'malecomp') %>% 
+  filter(mean > 0.125) %>% 
+  filter(coverage > 0.8)
 
-#get rid of badly covered samples
-s<-filter(df, coverage > 0.5)
-
-#kinship data (known and found relationships and demographic info for all samples are now stored in dataframe 't')
-
-
-s<-filter(s, link == 'mfcomp')
-
-links <- s %>% select(ida, idb, mean, foundrel) 
-nodes <- metadata %>% filter(sample_name %in% s$ida | sample_name %in% s$idb)
+nodes <- metadata %>% filter(sample_name %in% links$ida | sample_name %in% links$idb)
 
 
 
+links
+#create graph object
 net <- graph_from_data_frame(links,vertices = nodes, directed = F)
-E(net)$color <- as.factor(E(net)$foundrel)
-#E(net)$width <- E(net)$ibd*10
-V(net)$color <- as.factor((V(net)$parent))
-coords <- layout_(net, nicely())
-plot(net, vertex.size=5, layout = coords)
 
-#get rid of shit sequence data
-#based on poorly covered individuals identified in the coverage section
+#colour links and nodes by whatever you like - in this case relattionship and nodule
+E(net)$color <- as.factor(E(net)$foundrel)
+V(net)$color <- as.factor((V(net)$nodule_id))
+plot(net, vertex.size=5)
+####################################################
+####################################################
+#plotting relatedness over spatial scale
+####################################################
+world <- ne_countries(scale = "large", returnclass = "sf")
+lakes <- ne_download(scale = 10, type = 'lakes', category = 'physical', returnclass = "sf")
+river10 <- ne_download(scale = 10, type = 'rivers_lake_centerlines', category = 'physical', returnclass = "sf")
+towns <- ne_download(scale = 10, type = 'populated_places', category = 'cultural', returnclass = 'sf')
+villages <- st_as_sf((metadata %>% distinct(village, lat, long)), coords = c("long", "lat"), remove = FALSE, crs = 4326, agr = "constant")
+
+ggplot(data = world) +
+  geom_sf(fill = "antiquewhite1") +
+  geom_sf(data = lakes, colour = '#a6bddb', fill = '#a6bddb') +
+  geom_sf(data = river10, colour = '#a6bddb', fill = '#a6bddb') +
+  geom_sf(data = villages) +
+  scale_fill_viridis_c(trans = "sqrt", alpha = .4) +
+  geom_text_repel(data = villages, aes(x = long, y = lat, label = village), fontface = "bold", nudge_x = c(0.5, 0.5, 1, 0.5)) +
+  coord_sf(xlim = c(-4, 2), ylim = c(4, 12), expand = FALSE) +
+  ggtitle("Sampling Sites", subtitle = "Four Villages in Southeastern Ghana") +
+  annotation_scale(location = "bl", width_hint = 0.4) +
+  xlab("Longitude") + ylab("Latitude") +
+  theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", size = 0.5), panel.background = element_rect(fill = "#a6bddb"))
+
+
+ggplot(data = world) +
+  geom_sf() +
+  geom_sf(data = lakes, colour = '#a6bddb', fill = '#a6bddb') +
+  geom_sf(data = river10, colour = '#a6bddb', fill = '#a6bddb') +
+  geom_sf(data = villages) +
+  scale_fill_viridis_c(trans = "sqrt", alpha = .4) +
+  geom_text_repel(data = villages, aes(x = long, y = lat, label = village), fontface = "bold") +
+  coord_sf(xlim = c(-2, -1.4), ylim = c(5.5, 6.5), expand = FALSE) +
+  ggtitle("Sampling Sites", subtitle = "Four Villages in Southeastern Ghana") +
+  annotation_scale(location = "bl", width_hint = 0.4) +
+  xlab("Longitude") + ylab("Latitude") +
+  theme(panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", 
+                                        size = 0.5), panel.background = element_rect(fill = "#a6bddb"))
+
+
+
+
+####
+
 
