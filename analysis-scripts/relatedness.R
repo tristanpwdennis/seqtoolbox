@@ -59,7 +59,7 @@ ggplot(x, aes(x = x$IND, y = x$FRAC, fill = as.factor(DPbin))) +
 #in this case (also make histogram of fractions of coverage==0) let's chuck everything
 #below 0.5
 
-poorlysequencedinds <- x %>% filter(DP == 0, FRAC <0.5) %>% select(IND)
+poorlysequencedinds <- x %>% filter(DP == 0, FRAC >0.5) %>% select(IND)
 
 ####################################################
 #load kinshipdata
@@ -115,7 +115,7 @@ df<-df %>%
   mutate(., withinorbetweenfam = ifelse(.$parent.x == .$parent.y & .$link == 'mfcomp', 'withinfamily', 'betweenfamily'))
 
 #add inferred relationship
-df$foundrel <- cut(df$mean, c(-3, 0.0442, 0.0884, 0.177, 0.5, 1), c("unrelated", "third","second", "first", "twin"))
+df$foundrel <- cut(df$mean, c(-3, 0.0442, 0.0884, 0.177, 1), c("unrelated", "third","second", "first"))
 
 #let's filter out all comparisons between the males as they confuse things
 #we can return to them later
@@ -130,25 +130,29 @@ hist(as.numeric(df$coverage))
 df %>% 
   filter(., link == 'mfcomp') %>% 
   filter(., coverage > 0.8) %>% 
-  ggplot(., aes(x = withinorbetweenfam, y = mean, fill = withinorbetweenfam)) +
-  geom_boxplot() +
+  ggplot(., aes(x = withinorbetweenfam, y = mean)) +
+  geom_boxplot(aes(fill = withinorbetweenfam), show.legend = FALSE) +
   theme_ipsum() +
   scale_fill_viridis(discrete = TRUE, alpha=0.6, option="A") +
   geom_jitter(aes(color=foundrel), size=2, alpha=0.9) +
-  xlab(" Mean relatedness between and within families") +
-  ylab("Mean coefficient of kinship") + theme_grey(base_size = 22)
+  xlab("Comparison level") +
+  ylab("Mean Kinship coefficient") + theme_grey(base_size = 22) + 
+  ylim(0, 0.6) +
+  scale_x_discrete(name ="Comparison Level", breaks=c("betweenfamily","withinfamily"), labels=c("Between Broods", "Within Broods")) +
+  labs(colour="Inferred Relationship")
+  
   
 
 df %>% 
   filter(., link == 'malecomp') %>% 
   filter(., coverage > 0.8) %>% 
-  ggplot(., aes(x = withinorbetweenfam, y = mean, fill = withinorbetweenfam)) +
+  ggplot(.) +
   geom_boxplot() +
   theme_ipsum() +
   scale_fill_viridis(discrete = TRUE, alpha=0.6, option="A") +
   geom_jitter(aes(color=foundrel), size=2, alpha=0.9) +
   ylab("Mean coefficient of kinship") + theme_grey(base_size = 22) +
-  xlab("Relatedness between male samples") + theme_grey(base_size = 22)
+  xlab("Comparison level") + theme_grey(base_size = 22)
 
 
 
@@ -170,7 +174,7 @@ net <- graph_from_data_frame(links,vertices = nodes, directed = F)
 #colour links and nodes by whatever you like - in this case relattionship and nodule
 E(net)$color <- as.factor(E(net)$foundrel)
 V(net)$color <- as.factor((V(net)$nodule_id))
-plot(net, vertex.size=5)
+plot(net, vertex.size=5, vertex.label=NA)
 ####################################################
 ####################################################
 #plotting relatedness over spatial scale
