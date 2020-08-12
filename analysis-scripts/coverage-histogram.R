@@ -67,6 +67,14 @@ p
 
 
 
+
+
+
+
+
+
+
+
 ##USEFUL QUICK PLOT FUNCTION FOR EXPLORING
 #?plot
 

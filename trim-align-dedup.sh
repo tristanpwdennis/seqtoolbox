@@ -44,4 +44,12 @@ do
 
     java -jar ~/software/picard/build/libs/picard.jar MarkDuplicates I=bam/$f".srt.bam" O=bam/$f".srt.dd.bam" M=bam/$f".M"
 
+
+    ######
+    #Index bam files
+    ######
+	
+    samtools index bam/$f".srt.dd.bam"
+
+
 done

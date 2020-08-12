@@ -136,7 +136,7 @@ df %>%
   scale_fill_viridis(discrete = TRUE, alpha=0.6, option="A") +
   geom_jitter(aes(color=foundrel), size=2, alpha=0.9) +
   xlab("Comparison level") +
-  ylab("Mean Kinship coefficient") + theme_grey(base_size = 22) + 
+  ylab("Mean rxy") + theme_grey(base_size = 22) + 
   ylim(0, 0.6) +
   scale_x_discrete(name ="Comparison Level", breaks=c("betweenfamily","withinfamily"), labels=c("Between Broods", "Within Broods")) +
   labs(colour="Inferred Relationship")
@@ -217,5 +217,5 @@ ggplot(data = world) +
 
 
 ####
-
+?qnbinom()
 

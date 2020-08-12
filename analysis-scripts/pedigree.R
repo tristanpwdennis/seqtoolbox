@@ -7,6 +7,7 @@ library(sequoia)
 library(data.table)
 library(tibble)
 library(outliers)
+library(rcolony)
 
 #read loci and bamlist
 bamlist <- read.delim('~/Projects/DNDI/Data/mf-unamplified/forgeno/bamlist', header = FALSE)
@@ -97,16 +98,21 @@ s <- geno %>% filter(rowSums(geno == "-1")/NCOL(.) < 0.01)
 
 #make plink format
 #subsample to ease computation times
-PLACEHOLDER   <-s%>%  sample_n(., 10000)
+PLACEHOLDER   <-s%>%  sample_n(., 20000)
 PLACEHOLDER$genid <- paste(PLACEHOLDER$CHROM, PLACEHOLDER$POS, sep = '_')
 PLACEHOLDER <- select(PLACEHOLDER, -CHROM, -POS)
 
 PLACEHOLDER = setNames(data.frame(t(PLACEHOLDER[,-42])), PLACEHOLDER[,43])
 t <- head(PLACEHOLDER,-1) %>% rownames_to_column(.) %>% cbind(PAT = 0, .) %>% cbind(MAT = 0,. ) %>% cbind(SEX = 0,. ) %>% cbind(PHENOTYPE = 0,.) %>% cbind(IID =.$rowname,.) %>% cbind(FID =.$rowname,.) %>% .[ , !(names(.) %in% "rowname")]
 
+t <- filter(t, grepl('AF|MF', FID)) 
 
 geno <- GenoConvert(t)
 
 
-lifehist <- cbind(t$FID)
-lifehist$Sex
+lhd <- read.csv('~/Projects/DNDI/Data/mf-unamplified/ped/sequoia/lifehistdata.csv')
+LifeHistData <- filter(lhd, Sex == 3)
+ParOUT <- sequoia(GenoM = geno,  LifeHistData = LifeHistData, MaxSibIter = 0, Err=0.0001, MaxMismatch=50)
+rel <- GetMaybeRel(geno, LifeHistData=LifeHistData, SeqList = ParOUT, ParSib = "sib", Err=0.0001, MaxMismatch=50)
+
+
