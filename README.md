@@ -1,5 +1,5 @@
 # seqtoolbox
-sequencing utilities
+sequencing utilities for DNDI-BMGF funded project on Onchocerca volvulus
 
 ## Base
 
